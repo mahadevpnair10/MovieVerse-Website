@@ -1,5 +1,6 @@
-// src/components/MoodSelector.tsx
+/** @jsxImportSource @emotion/react */
 import React, { useState } from 'react';
+import { css } from '@emotion/react';
 
 const moods = [
   "I'm feeling Happy",
@@ -13,23 +14,22 @@ const MoodSelector: React.FC = () => {
 
   const handleMoodSelect = (mood: string) => {
     setSelectedMood(mood);
-    // In a real app, you'd make an API call or update a global state here
     console.log(`Mood selected: ${mood}`);
   };
 
   return (
-    <section style={moodStyles.container}>
-      <h2 style={moodStyles.title}>How are you feeling today?</h2>
-      <p style={moodStyles.description}>Get movies personalized for your mood.</p>
-      <div style={moodStyles.buttonsContainer}>
+    <section css={containerStyle}>
+      <h2 css={titleStyle}>How are you feeling today?</h2>
+      <p css={descriptionStyle}>Get movies personalized for your mood.</p>
+      <div css={buttonsContainerStyle}>
         {moods.map((mood) => (
           <button
             key={mood}
             onClick={() => handleMoodSelect(mood)}
-            style={{
-              ...moodStyles.button,
-              ...(selectedMood === mood ? moodStyles.buttonSelected : {}),
-            }}
+            css={[
+              buttonStyle,
+              selectedMood === mood && buttonSelectedStyle
+            ]}
           >
             {mood}
           </button>
@@ -39,54 +39,57 @@ const MoodSelector: React.FC = () => {
   );
 };
 
-const moodStyles: { [key: string]: React.CSSProperties } = {
-  container: {
-    backgroundColor: 'var(--card-dark)',
-    borderRadius: '15px',
-    padding: '20px',
-    margin: '20px auto', // Center the section
-    maxWidth: '1200px', // Constrain width for larger screens
-    width: '100%',
-  },
-  title: {
-    fontSize: '1.5rem',
-    fontWeight: 'bold',
-    margin: '0 0 10px 0',
-    color: 'var(--text-light)',
-  },
-  description: {
-    fontSize: '0.9rem',
-    color: 'var(--text-muted)',
-    margin: '0 0 20px 0',
-  },
-  buttonsContainer: {
-    display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', // Responsive grid
-    gap: '10px',
-  },
-  button: {
-    backgroundColor: 'var(--background-dark)',
-    color: 'var(--text-light)',
-    padding: '12px 15px',
-    borderRadius: '8px',
-    fontSize: '0.9rem',
-    fontWeight: 'bold',
-    transition: 'background-color 0.2s ease, transform 0.1s ease',
-    textAlign: 'center',
-  },
-  buttonSelected: {
-    backgroundColor: 'var(--accent-blue)', // Highlight when selected
-  },
-};
-
-// Hover effects
-moodStyles.button[':hover'] = {
-  backgroundColor: '#333',
-  transform: 'scale(1.02)',
-};
-moodStyles.buttonSelected[':hover'] = {
-  backgroundColor: 'var(--accent-blue)', // No change if already selected
-};
-
-
 export default MoodSelector;
+
+// Emotion CSS styles
+const containerStyle = css({
+  backgroundColor: 'var(--card-dark)',
+  borderRadius: '15px',
+  padding: '20px',
+  margin: '20px auto',
+  maxWidth: '1200px',
+  width: '100%',
+});
+
+const titleStyle = css({
+  fontSize: '1.5rem',
+  fontWeight: 'bold',
+  margin: '0 0 10px 0',
+  color: 'var(--text-light)',
+});
+
+const descriptionStyle = css({
+  fontSize: '0.9rem',
+  color: 'var(--text-muted)',
+  margin: '0 0 20px 0',
+});
+
+const buttonsContainerStyle = css({
+  display: 'grid',
+  gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))',
+  gap: '10px',
+});
+
+const buttonStyle = css({
+  backgroundColor: 'var(--background-dark)',
+  color: 'var(--text-light)',
+  padding: '12px 15px',
+  borderRadius: '8px',
+  fontSize: '0.9rem',
+  fontWeight: 'bold',
+  transition: 'background-color 0.2s ease, transform 0.1s ease',
+  textAlign: 'center',
+  cursor: 'pointer',
+  border: 'none',
+  '&:hover': {
+    backgroundColor: '#333',
+    transform: 'scale(1.02)',
+  },
+});
+
+const buttonSelectedStyle = css({
+  backgroundColor: 'var(--accent-blue)',
+  '&:hover': {
+    backgroundColor: 'var(--accent-blue)', // No change on hover
+  },
+});

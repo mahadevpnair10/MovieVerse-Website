@@ -1,13 +1,27 @@
 // src/components/NavBar.tsx
 import React from 'react';
 import { NavLink, Link } from 'react-router-dom';
+import MvLogo from '../assets/MVV.png'; // Assuming your logo is in src/assets/MVV.png
 
-const NavBar: React.FC = () => {
+// Define prop interface for NavBar
+interface NavBarProps {
+  isVisible: boolean;
+}
+
+const NavBar: React.FC<NavBarProps> = ({ isVisible }) => { // Accept isVisible prop
   return (
-    <nav style={navStyles.navbar}>
+    <nav style={{
+        ...navStyles.navbar,
+        // Apply transform based on isVisible prop
+        transform: isVisible ? 'translateY(0%)' : 'translateY(-100%)',
+      }}>
       <div style={navStyles.navContainer}>
-        <Link to="/" style={navStyles.logoLink}>
-          <div style={navStyles.logo}>MovieVerse</div> {/* Changed text to MovieVerse */}
+        <Link to="/">
+          <img
+            src={MvLogo}
+            alt="MovieVerse Logo"
+            style={navStyles.logo}
+          />
         </Link>
         <div style={navStyles.links}>
           <NavLink
@@ -34,6 +48,24 @@ const NavBar: React.FC = () => {
           >
             Mood
           </NavLink>
+          <NavLink
+            to="/profile"
+            style={({ isActive }) => ({ ...navStyles.link, ...(isActive ? navStyles.activeLink : {}) })}
+          >
+            Profile
+          </NavLink>
+          <NavLink
+            to="/login"
+            style={({ isActive }) => ({ ...navStyles.link, ...(isActive ? navStyles.activeLink : {}) })}
+          >
+            Login
+          </NavLink>
+          <NavLink
+            to="/register"
+            style={({ isActive }) => ({ ...navStyles.link, ...(isActive ? navStyles.activeLink : {}) })}
+          >
+            Register
+          </NavLink>
         </div>
       </div>
     </nav>
@@ -42,13 +74,16 @@ const NavBar: React.FC = () => {
 
 const navStyles: { [key: string]: React.CSSProperties } = {
   navbar: {
-    backgroundColor: 'var(--card-dark)', // Slightly different from background to stand out
+    backgroundColor: 'var(--card-dark)',
     padding: '15px 20px',
     borderBottom: '1px solid var(--border-color)',
-    position: 'sticky',
+    position: 'fixed', // Changed from sticky to fixed for smoother transitions
     top: 0,
+    left: 0,
+    right: 0,
     zIndex: 100,
     width: '100%',
+    transition: 'transform 0.3s ease-in-out', // Smooth transition for hide/show
   },
   navContainer: {
     maxWidth: '1200px',
@@ -58,9 +93,9 @@ const navStyles: { [key: string]: React.CSSProperties } = {
     alignItems: 'center',
   },
   logo: {
-    fontSize: '1.6rem',
-    fontWeight: 'bold',
-    color: 'var(--text-light)',
+    width: '150px',
+    height: '50px',
+    objectFit: 'contain',
   },
   links: {
     display: 'flex',
@@ -72,6 +107,7 @@ const navStyles: { [key: string]: React.CSSProperties } = {
     fontWeight: '600',
     padding: '5px 0',
     position: 'relative',
+    textDecoration: 'none',
     transition: 'color 0.2s ease',
   },
   activeLink: {
@@ -79,14 +115,15 @@ const navStyles: { [key: string]: React.CSSProperties } = {
   },
 };
 
-// Underline on hover and active state
+// Underline on hover and active state (Emotion-compatible if you were using it)
+// For now, assuming you're still using this direct style injection
 const styleElement = document.createElement('style');
 styleElement.innerHTML = `
 .links a::after {
   content: '';
   position: absolute;
   left: 0;
-  bottom: -5px; /* Adjust as needed */
+  bottom: -5px;
   width: 0;
   height: 2px;
   background-color: var(--accent-blue);
@@ -99,9 +136,12 @@ styleElement.innerHTML = `
 
 .links .activeLink::after {
   width: 100%;
-  background-color: var(--accent-blue); /* Ensure active link has the underline */
+  background-color: var(--accent-blue);
 }
 `;
-document.head.appendChild(styleElement);
+if (!document.head.querySelector('style[data-navbar-styles]')) {
+  styleElement.setAttribute('data-navbar-styles', 'true');
+  document.head.appendChild(styleElement);
+}
 
 export default NavBar;
