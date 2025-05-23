@@ -93,8 +93,8 @@ const navStyles: { [key: string]: React.CSSProperties } = {
     alignItems: 'center',
   },
   logo: {
-    width: '150px',
-    height: '50px',
+    width: '60px',
+    height: '60px',
     objectFit: 'contain',
   },
   links: {
