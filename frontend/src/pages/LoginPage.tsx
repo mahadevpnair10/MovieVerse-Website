@@ -1,121 +1,139 @@
 /** @jsxImportSource @emotion/react */
-import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
-import { css } from '@emotion/react';
-import AuthFormContainer from '../components/AuthFormContainer';
-import AuthButton from '../components/AuthButton';
-import AuthInput from '../components/AuthInput';
+// src/pages/LoginPage.tsx
+import React, { useState, useEffect } from 'react';
+import { useNavigate, Link } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
+import styled from '@emotion/styled'; // Import styled from emotion
+
+// Styled components for LoginPage
+const PageContainer = styled.div`
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: calc(100vh - 70px); /* Adjust for navbar height */
+  background-color: var(--background-dark);
+  color: var(--text-light);
+  padding: 20px;
+`;
+
+const Title = styled.h1`
+  font-size: 2.5rem;
+  margin-bottom: 30px;
+  color: var(--accent-blue);
+`;
+
+const ErrorMessage = styled.p`
+  color: var(--error-red);
+  margin-bottom: 15px;
+`;
+
+const Form = styled.form`
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  max-width: 350px;
+  background-color: var(--card-dark);
+  padding: 30px;
+  border-radius: 15px;
+  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+`;
+
+const Input = styled.input`
+  padding: 12px 15px;
+  margin-bottom: 15px;
+  border-radius: 8px;
+  border: 1px solid var(--border-color);
+  background-color: var(--background-light);
+  color: var(--text-light);
+  font-size: 1rem;
+  outline: none;
+
+  &:focus {
+    border-color: var(--accent-blue);
+  }
+`;
+
+const Button = styled.button`
+  padding: 12px 20px;
+  border-radius: 8px;
+  border: none;
+  background-color: var(--accent-blue);
+  color: white;
+  font-size: 1.1rem;
+  font-weight: bold;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+
+  &:hover {
+    background-color: #0056b3; /* A slightly darker blue on hover */
+  }
+`;
+
+const RegisterLinkContainer = styled.p`
+  margin-top: 25px;
+  color: var(--text-muted);
+  font-size: 0.95rem;
+`;
+
+const StyledLink = styled(Link)`
+  color: var(--accent-blue);
+  text-decoration: none;
+  font-weight: bold;
+
+  &:hover {
+    text-decoration: underline;
+  }
+`;
 
 const LoginPage: React.FC = () => {
-  const [email, setEmail] = useState('');
+  const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
+  const [error, setError] = useState<string | null>(null);
+  const navigate = useNavigate();
+  const { login, isLoggedIn } = useAuth();
 
-  const handleSubmit = (e: React.FormEvent) => {
+  useEffect(() => {
+    if (isLoggedIn) {
+      navigate('/');
+    }
+  }, [isLoggedIn, navigate]);
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    console.log('Login attempt:', { email, password });
-    // TODO: Integrate with your Django backend for login
+    setError(null);
+    const success = await login(username, password);
+    if (!success) {
+      setError('Login failed. Invalid username or password.');
+    }
   };
 
   return (
-    <AuthFormContainer>
-      {/* MV Logo */}
-      <div css={logoContainerStyle}>
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="white"
-          strokeWidth="1.5"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          css={logoSVGStyle}
-        >
-          <polygon points="12 2 2 12 12 22 22 12 12 2" />
-          <text
-            x="50%"
-            y="50%"
-            dominantBaseline="middle"
-            textAnchor="middle"
-            fill="black"
-            fontSize="10px"
-            fontWeight="bold"
-            fontFamily="Arial, sans-serif"
-          >
-            MV
-          </text>
-        </svg>
-      </div>
-
-      <h2 css={titleStyle}>LOGIN</h2>
-      <form onSubmit={handleSubmit} css={formStyle}>
-        <AuthInput
-          label="Email"
-          type="email"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
+    <PageContainer>
+      <Title>Login</Title>
+      {error && <ErrorMessage>{error}</ErrorMessage>}
+      <Form onSubmit={handleSubmit}>
+        <Input
+          type="text"
+          placeholder="Username"
+          value={username}
+          onChange={(e) => setUsername(e.target.value)}
           required
         />
-        <AuthInput
-          label="Password"
+        <Input
           type="password"
+          placeholder="Password"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
           required
         />
-        <AuthButton type="submit">Show me some movies</AuthButton>
-      </form>
-      <p css={switchAuthTextStyle}>
-        Don&apos;t have an account?{' '}
-        <Link to="/register" css={switchAuthLinkStyle}>Register here</Link>
-      </p>
-    </AuthFormContainer>
+        <Button type="submit">Log In</Button>
+      </Form>
+      <RegisterLinkContainer>
+        Don't have an account? <StyledLink to="/register">Register</StyledLink>
+      </RegisterLinkContainer>
+    </PageContainer>
   );
 };
 
 export default LoginPage;
-
-// Emotion styles
-const logoContainerStyle = css({
-  marginBottom: '20px',
-  display: 'flex',
-  justifyContent: 'center',
-  alignItems: 'center',
-  position: 'relative',
-});
-
-const logoSVGStyle = css({
-  width: '80px',
-  height: '80px',
-});
-
-const titleStyle = css({
-  fontSize: '2.5rem',
-  fontWeight: 'bold',
-  color: 'var(--text-light)',
-  marginBottom: '30px',
-  letterSpacing: '2px',
-});
-
-const formStyle = css({
-  width: '100%',
-  display: 'flex',
-  flexDirection: 'column',
-  alignItems: 'center',
-});
-
-const switchAuthTextStyle = css({
-  marginTop: '25px',
-  color: 'var(--text-muted)',
-  fontSize: '0.95rem',
-});
-
-const switchAuthLinkStyle = css({
-  color: 'var(--accent-blue)',
-  textDecoration: 'none',
-  fontWeight: 'bold',
-  marginLeft: '5px',
-  transition: 'color 0.2s ease',
-  '&:hover': {
-    color: 'var(--text-light)',
-  },
-});
