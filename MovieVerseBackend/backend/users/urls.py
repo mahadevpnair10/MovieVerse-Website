@@ -13,4 +13,5 @@ urlpatterns = [
     path('verify-otp/', views.verify_otp),
     path('reset-password/', views.reset_password),
     path('getEmail/', views.get_email),
+    path('me/', views.get_me),
 ]

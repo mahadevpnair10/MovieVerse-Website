@@ -73,6 +73,7 @@ def logout_user(request):
     return Response({"message": "Logout successful!"}, status=status.HTTP_200_OK)
 
 @api_view(['GET'])
+@authentication_classes([SessionAuthentication])
 @permission_classes([IsAuthenticated])  # Ensures only authenticated users can access
 def test(request):
     return Response({"message": "This is a protected resource"})
@@ -155,3 +156,14 @@ def get_email(request):
         return JsonResponse({'email': user.email})
     except User.DoesNotExist:
         return JsonResponse({'error': 'User not found'}, status=400)
+    
+    
+@api_view(['GET'])
+@authentication_classes([SessionAuthentication])
+@permission_classes([IsAuthenticated])
+def get_me(request):
+    user = request.user
+    return Response({
+        "username": user.username,
+        "id": user.id
+    })

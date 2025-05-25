@@ -55,13 +55,8 @@ const HomePage: React.FC = () => {
     };
 
     // Only fetch if logged in
-    if (isLoggedIn) {
-      fetchMovies();
-    } else {
-        setLoading(false); // If not logged in, no data to fetch.
-        setError("Please log in to view content.");
-    }
-  }, [isLoggedIn, logout]); // Depend on isLoggedIn to re-fetch when auth state changes
+  
+  }, []); // Depend on isLoggedIn to re-fetch when auth state changes
 
   const handleSearchSubmit = (term: string) => {
     console.log('Search initiated from Home Page:', term);

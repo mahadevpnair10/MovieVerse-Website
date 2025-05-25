@@ -1,72 +1,64 @@
 // src/App.tsx
-import React, { useState, useEffect, useRef } from 'react';
-import { BrowserRouter as Router, Routes, Route, useLocation } from 'react-router-dom';
-import HomePage from './pages/HomePage';
-import SearchPage from './pages/SearchPage';
-import WatchlistPage from './pages/WatchlistPage';
-import TinderPage from './pages/TinderPage';
+import React from 'react';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { AuthProvider, useAuth } from './context/AuthContext';
 import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
-import ProfilePage from './pages/ProfilePage';
-import MoodPage from './pages/MoodPage';
-import NavBar from './components/NavBar';
-import { AuthProvider } from './context/AuthContext';
-import PrivateRoute from './components/PrivateRoute';
+import HomePage from './pages/HomePage';
+import SearchPage from './pages/SearchPage';
+// ... other imports
 
-// AppContent and App structure remain the same as before
-const AppContent: React.FC = () => {
-  const location = useLocation();
-  const noNavBarPaths = ['/login', '/register'];
+const PrivateRoute: React.FC<{ children: JSX.Element }> = ({ children }) => {
+  const { user, isLoading } = useAuth();
 
-  const [isNavBarVisible, setIsNavBarVisible] = useState(true);
-  const lastScrollY = useRef(0);
+  if (isLoading) {
+    return <div>Loading...</div>; // or spinner
+  }
 
-  useEffect(() => {
-    const handleScroll = () => {
-      const currentScrollY = window.scrollY;
-      const isAuthPage = noNavBarPaths.includes(location.pathname);
+  if (!user) {
+    return <Navigate to="/login" replace />;
+  }
 
-      if (isAuthPage) {
-        setIsNavBarVisible(false);
-        return;
-      }
+  return children;
+};
 
-      if (currentScrollY === 0) {
-        setIsNavBarVisible(true);
-      } else if (currentScrollY > lastScrollY.current) {
-        setIsNavBarVisible(false);
-      } else if (currentScrollY < lastScrollY.current) {
-        setIsNavBarVisible(true);
-      }
-
-      lastScrollY.current = currentScrollY;
-    };
-
-    window.addEventListener('scroll', handleScroll);
-    handleScroll();
-    return () => {
-      window.removeEventListener('scroll', handleScroll);
-    };
-  }, [location.pathname, noNavBarPaths]);
+const AppRoutes: React.FC = () => {
+  const { user } = useAuth();
 
   return (
-    <>
-      <NavBar isVisible={isNavBarVisible && !noNavBarPaths.includes(location.pathname)} />
-      <div style={{ paddingTop: isNavBarVisible && !noNavBarPaths.includes(location.pathname) ? '80px' : '0' }}>
-         <Routes>
-           <Route path="/login" element={<LoginPage />} />
-           <Route path="/register" element={<RegisterPage />} />
+    <Routes>
+      {/* Public routes */}
+      <Route
+        path="/login"
+        element={!user ? <LoginPage /> : <Navigate to="/" replace />}
+      />
+      <Route
+        path="/register"
+        element={!user ? <RegisterPage /> : <Navigate to="/" replace />}
+      />
 
-           <Route path="/" element={<PrivateRoute><HomePage /></PrivateRoute>} />
-           <Route path="/search" element={<PrivateRoute><SearchPage /></PrivateRoute>} />
-           <Route path="/watchlist" element={<PrivateRoute><WatchlistPage /></PrivateRoute>} />
-           <Route path="/tinder" element={<PrivateRoute><TinderPage /></PrivateRoute>} />
-           <Route path="/profile" element={<PrivateRoute><ProfilePage /></PrivateRoute>} />
-           <Route path="/mood" element={<PrivateRoute><MoodPage /></PrivateRoute>} />
-           <Route path="*" element={<div>404 - Page Not Found</div>} />
-         </Routes>
-      </div>
-    </>
+      {/* Private routes */}
+      <Route
+        path="/"
+        element={
+          <PrivateRoute>
+            <HomePage />
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="/search"
+        element={
+          <PrivateRoute>
+            <SearchPage />
+          </PrivateRoute>
+        }
+      />
+      {/* add other private routes similarly */}
+
+      {/* Fallback 404 */}
+      <Route path="*" element={<div>404 Not Found</div>} />
+    </Routes>
   );
 };
 
@@ -74,7 +66,7 @@ const App: React.FC = () => {
   return (
     <Router>
       <AuthProvider>
-        <AppContent />
+        <AppRoutes />
       </AuthProvider>
     </Router>
   );
