@@ -7,6 +7,4 @@ urlpatterns = [
     path('recommend/', predict_genre_and_recommend),
     path('rec/', get_recommendations),
     path('import-movies/', import_movies_from_csv, name='import_movies'),
-    
-    
 ]

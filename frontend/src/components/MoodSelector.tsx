@@ -1,20 +1,36 @@
 /** @jsxImportSource @emotion/react */
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { css } from '@emotion/react';
 
 const moods = [
   "I'm feeling Happy",
-  "I'm feeling Sad",
+  "I'm feeling Sad", 
   "I'm feeling Adventurous",
-  "Other/Custom",
+  "I'm feeling Excited",
+  "I'm feeling Relaxed",
+  "I'm feeling Thoughtful",
 ];
 
 const MoodSelector: React.FC = () => {
+  const navigate = useNavigate();
   const [selectedMood, setSelectedMood] = useState<string | null>(null);
 
   const handleMoodSelect = (mood: string) => {
     setSelectedMood(mood);
     console.log(`Mood selected: ${mood}`);
+    
+    // Extract the actual mood from the sentence (remove "I'm feeling ")
+    const moodValue = mood.replace("I'm feeling ", "").toLowerCase();
+    
+    // Store current scroll position before navigating
+    const scrollPosition = window.scrollY;
+    navigate(`/mood-recommendations?mood=${encodeURIComponent(moodValue)}`, {
+      state: { 
+        fromHomePage: true,
+        scrollPosition: scrollPosition 
+      }
+    });
   };
 
   return (

@@ -48,24 +48,7 @@ const NavBar: React.FC<NavBarProps> = ({ isVisible }) => { // Accept isVisible p
           >
             Mood
           </NavLink>
-          <NavLink
-            to="/profile"
-            style={({ isActive }) => ({ ...navStyles.link, ...(isActive ? navStyles.activeLink : {}) })}
-          >
-            Profile
-          </NavLink>
-          <NavLink
-            to="/login"
-            style={({ isActive }) => ({ ...navStyles.link, ...(isActive ? navStyles.activeLink : {}) })}
-          >
-            Login
-          </NavLink>
-          <NavLink
-            to="/register"
-            style={({ isActive }) => ({ ...navStyles.link, ...(isActive ? navStyles.activeLink : {}) })}
-          >
-            Register
-          </NavLink>
+          
         </div>
       </div>
     </nav>

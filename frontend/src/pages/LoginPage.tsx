@@ -91,22 +91,40 @@ const LoginPage: React.FC = () => {
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const navigate = useNavigate();
-  const { login, isLoggedIn } = useAuth();
+  // Destructure isLoggedIn (the newly added field) along with isLoading and login
+  const { isLoggedIn, isLoading, login } = useAuth(); 
 
+  // Effect to redirect if the user is already logged in and loading is complete
   useEffect(() => {
-    if (isLoggedIn) {
+    // If isLoggedIn is true AND we're no longer in the initial loading state,
+    // then navigate away from the login page.
+    if (isLoggedIn && !isLoading) {
       navigate('/');
     }
-  }, [isLoggedIn, navigate]);
+  }, [isLoggedIn, isLoading, navigate]); // Dependencies: reruns when isLoggedIn, isLoading, or navigate changes
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError(null);
+    setError(null); // Clear previous errors
     const success = await login(username, password);
     if (!success) {
       setError('Login failed. Invalid username or password.');
     }
+    // No explicit navigate('/') here. The useEffect above will handle the navigation
+    // once the 'user' state (which updates isLoggedIn) in AuthContext updates after a successful login.
   };
+
+  // Render a loading state while authentication status is being determined.
+  // This prevents the login form from flashing before redirection, or if user is still loading.
+  if (isLoading) {
+    return <PageContainer>Loading authentication status...</PageContainer>;
+  }
+
+  // If user is already logged in at this point (and not loading),
+  // the useEffect will trigger the navigation.
+  // We can optionally render null or a simple message before the redirect happens.
+  // For most cases, returning null or a minimal loader is fine as navigation is quick.
+  // if (isLoggedIn) return null; // Another option if you don't want to show the form at all if logged in
 
   return (
     <PageContainer>

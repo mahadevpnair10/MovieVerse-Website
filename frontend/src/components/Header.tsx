@@ -1,6 +1,6 @@
 // src/components/Header.tsx
 import React, { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 
 interface HeaderProps {
   initialSearchTerm?: string;
@@ -10,14 +10,14 @@ interface HeaderProps {
 
 const Header: React.FC<HeaderProps> = ({ initialSearchTerm = '', onSearchSubmit, showSearchBar = true }) => {
   const [searchTerm, setSearchTerm] = useState(initialSearchTerm);
-  const navigate = useNavigate();
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
+    console.log('Header: Search form submitted with term:', searchTerm); // Debug log
     if (searchTerm.trim()) {
-      onSearchSubmit(searchTerm);
-      // Optional: navigate to search page if not already there
-      navigate(`/search?q=${encodeURIComponent(searchTerm)}`);
+      console.log('Header: Calling onSearchSubmit with:', searchTerm.trim()); // Debug log
+      onSearchSubmit(searchTerm.trim());
+      // Remove the navigate call - we want to stay on homepage and show overlay
     }
   };
 
@@ -88,8 +88,8 @@ const headerStyles: { [key: string]: React.CSSProperties } = {
     top: 0,
     zIndex: 100,
     width: '100%',
-    maxWidth: '1200px', // Constrain width for larger screens
-    margin: '0 auto', // Center the header
+    maxWidth: '1200px',
+    margin: '0 auto',
   },
   topRow: {
     display: 'flex',
@@ -120,6 +120,7 @@ const headerStyles: { [key: string]: React.CSSProperties } = {
     padding: '8px',
     borderRadius: '50%',
     transition: 'background-color 0.2s ease',
+    textDecoration: 'none',
   },
   profileIcon: {
     width: '24px',
@@ -145,16 +146,14 @@ const headerStyles: { [key: string]: React.CSSProperties } = {
   searchButton: {
     color: 'var(--text-muted)',
     transition: 'color 0.2s ease',
+    background: 'none',
+    border: 'none',
+    cursor: 'pointer',
+    padding: '5px',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 };
-
-// Hover effects (can be done with pseudo-classes in CSS or JS event listeners)
-headerStyles.profileIconContainer[':hover'] = {
-    backgroundColor: '#333', // Darken on hover
-};
-headerStyles.searchButton[':hover'] = {
-    color: 'var(--text-light)', // Lighten on hover
-};
-
 
 export default Header;

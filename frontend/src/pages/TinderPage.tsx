@@ -1,85 +1,177 @@
-// src/pages/TinderPage.tsx
 /** @jsxImportSource @emotion/react */
-
-import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { css } from '@emotion/react'; // Import css from emotion
+import React, { useState, useEffect, useRef, useCallback, useLayoutEffect } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
+import { css } from '@emotion/react';
+import { backendApi, useAuth } from '../context/AuthContext';
+import { useTinderData } from '../context/TinderDataContext';
 import MovieSwipeCard from '../components/MovieSwipeCard';
 
-// Dummy movie data for demonstration
-const dummyMoviesToSwipe = [
-  {
-    id: 'm1',
-    title: 'The Cosmic Drift',
-    imdbRating: 8.2,
-    ourRating: 8.5,
-    genre: 'Sci-Fi, Drama',
-    description: 'A lone astronaut discovers an anomaly that redefines his understanding of the universe.',
-  },
-  {
-    id: 'm2',
-    title: 'Whispers in the Woods',
-    imdbRating: 7.5,
-    ourRating: 7.9,
-    genre: 'Horror, Thriller',
-    description: 'A group of friends on a camping trip uncover an ancient, terrifying secret in the forest.',
-  },
-  {
-    id: 'm3',
-    title: 'Digital Heartbeat',
-    imdbRating: 9.0,
-    ourRating: 9.2,
-    genre: 'Cyberpunk, Action',
-    description: 'In a dystopian future, a hacker fights for justice in a world dominated by mega-corporations.',
-  },
-  {
-    id: 'm4',
-    title: 'The Great Outdoors',
-    imdbRating: 6.8,
-    ourRating: 7.0,
-    genre: 'Comedy, Adventure',
-    description: 'A family vacation takes an unexpected turn when they encounter eccentric locals.',
-  },
-  {
-    id: 'm5',
-    title: 'Lost in Time',
-    imdbRating: 8.0,
-    ourRating: 8.3,
-    genre: 'Fantasy, Mystery',
-    description: 'A historian finds himself stranded in a different era with no way back.',
-  },
-];
+// Define the Movie interface based on your Django model
+interface Movie {
+  id: number;
+  title: string;
+  year?: number;
+  genre?: string;
+  director?: string;
+  description?: string;
+  imdb_rating?: number;
+  poster_url?: string;
+  created_at?: string;
+}
 
-const SWIPE_THRESHOLD = 150; // Pixels to swipe before it's considered a full swipe
+const SWIPE_THRESHOLD = 150;
 
 const TinderPage: React.FC = () => {
-  const [movies, setMovies] = useState(dummyMoviesToSwipe);
-  const [currentMovieIndex, setCurrentMovieIndex] = useState(0);
+  const { user } = useAuth();
+  const navigate = useNavigate();
+  const location = useLocation();
+  const { 
+    movies, 
+    currentMovieIndex, 
+    setMovies, 
+    setCurrentMovieIndex, 
+    isCached 
+  } = useTinderData();
+  
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [addingToWatchlist, setAddingToWatchlist] = useState(false);
 
   const cardRef = useRef<HTMLDivElement>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [startX, setStartX] = useState(0);
   const [currentX, setCurrentX] = useState(0);
+  const [hasSwiped, setHasSwiped] = useState(false);
 
-  const handleSwipe = useCallback((direction: 'left' | 'right') => {
-    // For now, just move to the next movie
-    // In a real app, you'd send to backend BEFORE moving to next or handling response
-    if (direction === 'right') {
-      console.log(`Liked movie: ${movies[currentMovieIndex]?.title}`);
-      // TODO: Add to watchlist (backend integration)
-    } else {
-      console.log(`Disliked movie: ${movies[currentMovieIndex]?.title}`);
+  // Restore scroll position when coming back from movie details
+  useLayoutEffect(() => {
+    if (location.state?.scrollPosition) {
+      setTimeout(() => {
+        window.scrollTo(0, location.state.scrollPosition);
+      }, 0);
+    }
+  }, [location.state]);
+
+  // Fetch movies from backend
+  const fetchTinderMovies = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      const response = await backendApi.get('api/TinderMovies/');
+      console.log(response.data);
+      setMovies(response.data);
+      setCurrentMovieIndex(0);
+    } catch (error) {
+      console.error('Error fetching tinder movies:', error);
+      setError('Failed to load movies. Please try again later.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Add movie to watchlist
+  const addToWatchlist = async (movieId: number): Promise<boolean> => {
+    if (!user?.username) {
+      console.error('User not authenticated');
+      return false;
     }
 
-    // Move to the next movie in the list, looping if necessary
-    setCurrentMovieIndex((prevIndex) => (prevIndex + 1) % movies.length);
-    // Reset position for the next card immediately
+    try {
+      setAddingToWatchlist(true);
+      const response = await backendApi.post('api/watchlist/add/', {
+        username: user.username,
+        movie_id: movieId
+      });
+      
+      console.log('Movie added to watchlist:', response.data);
+      return true;
+    } catch (error: any) {
+      console.error('Error adding movie to watchlist:', error);
+      
+      if (error.response?.data?.message === "Movie already in watchlist") {
+        console.log('Movie already in watchlist');
+        return true;
+      }
+      
+      setError('Failed to add movie to watchlist. Please try again.');
+      setTimeout(() => setError(null), 3000);
+      return false;
+    } finally {
+      setAddingToWatchlist(false);
+    }
+  };
+
+  // Fetch movie poster
+  const fetchMoviePoster = async (movieTitle: string): Promise<string | null> => {
+    try {
+      console.log("trying...");
+      const response = await backendApi.get(`api/getMoviePoster/${encodeURIComponent(movieTitle)}/`);
+      console.log('Poster data:', response.data);
+      return response.data.poster_url || null;
+    } catch (error) {
+      console.error('Error fetching movie poster:', error);
+      return null;
+    }
+  };
+
+  // Load movies on component mount
+  useEffect(() => {
+    if (isCached && movies.length > 0) {
+      return;
+    }
+    fetchTinderMovies();
+  }, [isCached, movies.length]);
+
+  const handleSwipe = useCallback(async (direction: 'left' | 'right') => {
+    const currentMovie = movies[currentMovieIndex];
+    if (!currentMovie) return;
+
+    setHasSwiped(true);
+
+    if (direction === 'right') {
+      console.log(`Liked movie: ${currentMovie.title}`);
+      
+      const success = await addToWatchlist(currentMovie.id);
+      
+      if (success) {
+        console.log(`${currentMovie.title} added to watchlist!`);
+      }
+    } else {
+      console.log(`Disliked movie: ${currentMovie.title}`);
+    }
+
+    if (currentMovieIndex + 1 >= movies.length) {
+      await fetchTinderMovies();
+    } else {
+      setCurrentMovieIndex(currentMovieIndex + 1);
+    }
+    
     setCurrentX(0);
-  }, [currentMovieIndex, movies]);
+    setTimeout(() => setHasSwiped(false), 100);
+  }, [currentMovieIndex, movies, setCurrentMovieIndex, user?.username]);
+
+  const handleMovieClick = () => {
+    if (hasSwiped) return;
+    
+    const currentMovie = movies[currentMovieIndex];
+    if (!currentMovie) return;
+
+    const scrollPosition = window.scrollY;
+    navigate(`/movies/${currentMovie.id}`, {
+      state: { 
+        fromTinderPage: true,
+        scrollPosition: scrollPosition,
+        tinderIndex: currentMovieIndex
+      }
+    });
+  };
 
   const onMouseDown = useCallback((e: React.MouseEvent) => {
     setIsDragging(true);
     setStartX(e.clientX);
-    setCurrentX(0); // Reset currentX at start of new drag
+    setCurrentX(0);
+    setHasSwiped(false);
   }, []);
 
   const onMouseMove = useCallback((e: React.MouseEvent) => {
@@ -93,14 +185,16 @@ const TinderPage: React.FC = () => {
     if (Math.abs(currentX) > SWIPE_THRESHOLD) {
       handleSwipe(currentX > 0 ? 'right' : 'left');
     } else {
-      setCurrentX(0); // Snap back to center
+      setCurrentX(0);
+      setHasSwiped(false);
     }
-  }, [isDragging, currentX, handleSwipe]);
+  }, [currentX, handleSwipe]);
 
   const onTouchStart = useCallback((e: React.TouchEvent) => {
     setIsDragging(true);
     setStartX(e.touches[0].clientX);
     setCurrentX(0);
+    setHasSwiped(false);
   }, []);
 
   const onTouchMove = useCallback((e: React.TouchEvent) => {
@@ -114,59 +208,109 @@ const TinderPage: React.FC = () => {
     if (Math.abs(currentX) > SWIPE_THRESHOLD) {
       handleSwipe(currentX > 0 ? 'right' : 'left');
     } else {
-      setCurrentX(0); // Snap back to center
+      setCurrentX(0);
+      setHasSwiped(false);
     }
-  }, [isDragging, currentX, handleSwipe]);
+  }, [currentX, handleSwipe]);
 
-
-  // Calculate rotation and opacity for the card based on drag position
-  const rotation = currentX * 0.1; // Rotate slightly as it moves
-  const opacity = 1 - Math.abs(currentX) / window.innerWidth; // Fade out as it moves off screen
+  const rotation = currentX * 0.1;
+  const opacity = 1 - Math.abs(currentX) / window.innerWidth;
 
   const currentMovie = movies[currentMovieIndex];
+
+  // Loading state
+  if (loading) {
+    return (
+      <div css={pageStyles.container}>
+        <div css={pageStyles.loadingContainer}>
+          <div css={pageStyles.spinner}></div>
+          <p css={pageStyles.loadingText}>Loading movies...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Error state
+  if (error) {
+    return (
+      <div css={pageStyles.container}>
+        <div css={pageStyles.errorContainer}>
+          <p css={pageStyles.errorText}>{error}</p>
+          <button css={pageStyles.retryButton} onClick={fetchTinderMovies}>
+            Retry
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div css={pageStyles.container}>
       <header css={pageStyles.header}>
         <h1 css={pageStyles.title}>Feel a match?</h1>
-        <p css={pageStyles.instruction}>Swipe right <span css={pageStyles.arrow}>→</span></p>
+        <p css={pageStyles.instruction}>
+          Swipe right to add to watchlist <span css={pageStyles.arrow}>→</span>
+        </p>
+        <p css={pageStyles.subInstruction}>
+          Tap on card to view details
+        </p>
       </header>
+
+      {/* Show adding to watchlist feedback */}
+      {addingToWatchlist && (
+        <div css={pageStyles.feedbackContainer}>
+          <div css={pageStyles.feedbackMessage}>
+            <div css={pageStyles.feedbackSpinner}></div>
+            Adding to watchlist...
+          </div>
+        </div>
+      )}
 
       <main css={pageStyles.mainContent}>
         {currentMovie ? (
           <div
             ref={cardRef}
-            css={pageStyles.swipeCardWrapper(isDragging)} // Apply transition based on dragging
+            css={pageStyles.swipeCardWrapper(isDragging)}
             onMouseDown={onMouseDown}
             onMouseMove={onMouseMove}
             onMouseUp={onMouseUp}
-            onMouseLeave={onMouseUp} // Important: If mouse leaves while dragging
+            onMouseLeave={onMouseUp}
             onTouchStart={onTouchStart}
             onTouchMove={onTouchMove}
             onTouchEnd={onTouchEnd}
           >
             <MovieSwipeCard
-              {...currentMovie}
+              movie={currentMovie}
               x={currentX}
               rotation={rotation}
               opacity={opacity}
-              // onSwipeRight and onSwipeLeft on MovieSwipeCard are now handled by parent
+              fetchPoster={fetchMoviePoster}
+              onMovieClick={handleMovieClick}
             />
           </div>
         ) : (
-          <p css={pageStyles.noMoviesMessage}>No more movies to swipe! Check back later.</p>
+          <div css={pageStyles.noMoviesContainer}>
+            <p css={pageStyles.noMoviesMessage}>No more movies to swipe!</p>
+            <button css={pageStyles.reloadButton} onClick={fetchTinderMovies}>
+              Load More Movies
+            </button>
+          </div>
         )}
 
         <div css={pageStyles.actionButtons}>
-          <button css={pageStyles.dislikeButton} onClick={() => handleSwipe('left')}>
+          <button 
+            css={pageStyles.dislikeButton} 
+            onClick={() => handleSwipe('left')}
+            disabled={addingToWatchlist}
+          >
             <svg
               xmlns="http://www.w3.org/2000/svg"
-              width="24"
-              height="24"
+              width="28"
+              height="28"
               viewBox="0 0 24 24"
               fill="none"
               stroke="currentColor"
-              strokeWidth="2"
+              strokeWidth="2.5"
               strokeLinecap="round"
               strokeLinejoin="round"
             >
@@ -174,20 +318,28 @@ const TinderPage: React.FC = () => {
               <line x1="6" y1="6" x2="18" y2="18"></line>
             </svg>
           </button>
-          <button css={pageStyles.likeButton} onClick={() => handleSwipe('right')}>
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              width="24"
-              height="24"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path>
-            </svg>
+          <button 
+            css={pageStyles.likeButton} 
+            onClick={() => handleSwipe('right')}
+            disabled={addingToWatchlist}
+          >
+            {addingToWatchlist ? (
+              <div css={pageStyles.buttonSpinner}></div>
+            ) : (
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="28"
+                height="28"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2.5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path>
+              </svg>
+            )}
           </button>
         </div>
       </main>
@@ -199,31 +351,101 @@ const pageStyles = {
   container: css`
     display: flex;
     flex-direction: column;
-    min-height: calc(100vh - 70px);
-    background-color: var(--background-dark);
+    min-height: 100vh;
+    background: linear-gradient(135deg, var(--background-dark) 0%, rgba(15, 17, 27, 0.95) 100%);
     color: var(--text-light);
     align-items: center;
     padding: 20px;
+    padding-top: 100px;
+    position: relative;
+    overflow-x: hidden;
   `,
+  
   header: css`
     text-align: center;
-    margin-bottom: 30px;
+    margin-bottom: 50px;
     margin-top: 20px;
     width: 100%;
+    max-width: 500px;
+    z-index: 10;
   `,
+  
   title: css`
-    font-size: 2.5rem;
-    font-weight: bold;
+    font-size: 3.2rem;
+    font-weight: 800;
     margin: 0;
+    letter-spacing: 1.5px;
+    background: linear-gradient(135deg, #fff 0%, #b8c1ec 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    text-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    line-height: 1.2;
+    
+    @media (max-width: 768px) {
+      font-size: 2.6rem;
+    }
   `,
+  
   instruction: css`
-    font-size: 1.2rem;
-    color: var(--text-muted);
-    margin: 10px 0 0 0;
+    font-size: 1.4rem;
+    color: #b8c1ec;
+    margin: 20px 0 0 0;
+    font-weight: 500;
+    opacity: 0.9;
   `,
+  
+  subInstruction: css`
+    font-size: 1.1rem;
+    color: #888;
+    margin: 8px 0 0 0;
+    opacity: 0.8;
+    font-weight: 400;
+  `,
+  
   arrow: css`
-    margin-left: 5px;
+    margin-left: 8px;
+    font-weight: 700;
+    color: #007BFF;
   `,
+  
+  feedbackContainer: css`
+    position: fixed;
+    top: 130px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 1000;
+    background: linear-gradient(135deg, rgba(50, 200, 50, 0.95), rgba(40, 180, 40, 0.95));
+    color: white;
+    padding: 16px 28px;
+    border-radius: 35px;
+    backdrop-filter: blur(15px);
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.4);
+    font-weight: 600;
+    font-size: 1.1rem;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+  `,
+  
+  feedbackMessage: css`
+    display: flex;
+    align-items: center;
+    gap: 14px;
+  `,
+  
+  feedbackSpinner: css`
+    width: 20px;
+    height: 20px;
+    border: 3px solid rgba(255, 255, 255, 0.3);
+    border-top: 3px solid white;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+  `,
+  
   mainContent: css`
     flex-grow: 1;
     display: flex;
@@ -231,76 +453,266 @@ const pageStyles = {
     align-items: center;
     justify-content: center;
     width: 100%;
-    max-width: 450px;
-    margin: 0 auto;
-    padding-bottom: 40px;
-    position: relative; /* For absolute positioning of the swipe card */
-    min-height: 700px; /* Ensure enough space for the card */
+    max-width: 500px;
+    padding: 0 15px;
+    position: relative;
   `,
+  
   swipeCardWrapper: (isDragging: boolean) => css`
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
+    cursor: ${isDragging ? 'grabbing' : 'grab'};
+    user-select: none;
+    touch-action: none;
     width: 100%;
-    max-width: 380px;
+    max-width: 400px;
+    margin: 0 auto;
+    position: relative;
     height: 650px;
-    /* Add transition for smooth snap back when not dragging */
-    transition: ${isDragging ? 'none' : 'transform 0.3s ease-out, opacity 0.3s ease-out'};
+    filter: drop-shadow(0 15px 35px rgba(0, 0, 0, 0.6));
+    transition: ${isDragging ? 'none' : 'filter 0.3s ease'};
+    
+    &:hover {
+      filter: drop-shadow(0 20px 40px rgba(0, 0, 0, 0.7));
+    }
+    
+    @media (max-width: 768px) {
+      max-width: 350px;
+      height: 580px;
+    }
   `,
+  
+  noMoviesContainer: css`
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 30px;
+    margin-top: 60px;
+    text-align: center;
+  `,
+  
+  noMoviesMessage: css`
+    font-size: 1.8rem;
+    color: #b8c1ec;
+    font-weight: 600;
+    line-height: 1.4;
+  `,
+  
+  reloadButton: css`
+    background: linear-gradient(135deg, #32c852, #28a745);
+    border: none;
+    padding: 16px 32px;
+    border-radius: 35px;
+    cursor: pointer;
+    color: white;
+    font-size: 1.2rem;
+    font-weight: 700;
+    transition: all 0.3s ease;
+    box-shadow: 0 8px 25px rgba(50, 200, 50, 0.4);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+
+    &:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 12px 30px rgba(50, 200, 50, 0.5);
+    }
+
+    &:active {
+      transform: translateY(0);
+    }
+  `,
+  
   actionButtons: css`
     display: flex;
-    gap: 40px;
-    margin-top: auto; /* Push buttons to the bottom of mainContent */
-    padding-top: 30px; /* Space above buttons */
-    z-index: 10; /* Ensure buttons are above the card */
+    justify-content: center;
+    margin-top: 40px;
+    gap: 60px;
+    width: 100%;
+    max-width: 400px;
+    
+    @media (max-width: 768px) {
+      gap: 50px;
+      margin-top: 35px;
+    }
   `,
+  
   likeButton: css`
-    background-color: var(--accent-blue);
-    color: white;
-    width: 60px;
-    height: 60px;
-    border-radius: 50%;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    font-size: 2rem;
+    background: linear-gradient(135deg, #32c852, #28a745);
     border: none;
-    cursor: pointer;
-    box-shadow: 0 4px 10px rgba(0, 123, 255, 0.4);
-    &:hover { /* Emotion pseudo-class */
-      background-color: #0056b3;
-      transform: scale(1.1);
-    }
-    &:active { /* For click feedback */
-      transform: scale(0.95);
-    }
-  `,
-  dislikeButton: css`
-    background-color: var(--card-dark);
-    color: var(--text-light);
-    width: 60px;
-    height: 60px;
+    padding: 20px;
     border-radius: 50%;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    font-size: 2rem;
-    border: 1px solid var(--border-color);
     cursor: pointer;
-    &:hover { /* Emotion pseudo-class */
-      background-color: #333;
-      transform: scale(1.1);
+    color: white;
+    box-shadow: 0 8px 20px rgba(50, 200, 50, 0.5);
+    transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 75px;
+    height: 75px;
+    border: 2px solid rgba(255, 255, 255, 0.2);
+    position: relative;
+    overflow: hidden;
+
+    &:before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: -100%;
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+      transition: left 0.5s;
     }
-    &:active { /* For click feedback */
-      transform: scale(0.95);
+
+    &:hover:not(:disabled) {
+      transform: translateY(-3px) scale(1.05);
+      box-shadow: 0 12px 25px rgba(50, 200, 50, 0.6);
+      
+      &:before {
+        left: 100%;
+      }
+    }
+
+    &:active:not(:disabled) {
+      transform: translateY(-1px) scale(1.02);
+    }
+
+    &:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+      transform: none;
     }
   `,
-  noMoviesMessage: css`
-    font-size: 1.2rem;
-    color: var(--text-muted);
+  
+  dislikeButton: css`
+    background: linear-gradient(135deg, #ff4757, #ff3742);
+    border: none;
+    padding: 20px;
+    border-radius: 50%;
+    cursor: pointer;
+    color: white;
+    box-shadow: 0 8px 20px rgba(255, 50, 50, 0.5);
+    transition: all 0.3s ease;
+    width: 75px;
+    height: 75px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 2px solid rgba(255, 255, 255, 0.2);
+    position: relative;
+    overflow: hidden;
+
+    &:before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: -100%;
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+      transition: left 0.5s;
+    }
+
+    &:hover:not(:disabled) {
+      transform: translateY(-3px) scale(1.05);
+      box-shadow: 0 12px 25px rgba(255, 50, 50, 0.6);
+      
+      &:before {
+        left: 100%;
+      }
+    }
+
+    &:active:not(:disabled) {
+      transform: translateY(-1px) scale(1.02);
+    }
+
+    &:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+      transform: none;
+    }
+  `,
+  
+  buttonSpinner: css`
+    width: 26px;
+    height: 26px;
+    border: 3px solid rgba(255, 255, 255, 0.3);
+    border-top: 3px solid white;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+  `,
+  
+  // Loading styles
+  loadingContainer: css`
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 500px;
+    gap: 30px;
+  `,
+  
+  spinner: css`
+    width: 50px;
+    height: 50px;
+    border: 5px solid rgba(255, 255, 255, 0.1);
+    border-top: 5px solid #32c852;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+  `,
+  
+  loadingText: css`
+    font-size: 1.4rem;
+    color: #b8c1ec;
+    font-weight: 500;
+  `,
+  
+  // Error styles
+  errorContainer: css`
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 500px;
+    gap: 30px;
     text-align: center;
-    margin-top: 50px;
+  `,
+  
+  errorText: css`
+    font-size: 1.4rem;
+    color: #ff4757;
+    font-weight: 500;
+    line-height: 1.4;
+  `,
+  
+  retryButton: css`
+    background: linear-gradient(135deg, #ff4757, #ff3742);
+    border: none;
+    padding: 16px 32px;
+    border-radius: 35px;
+    cursor: pointer;
+    color: white;
+    font-size: 1.2rem;
+    font-weight: 700;
+    transition: all 0.3s ease;
+    box-shadow: 0 8px 25px rgba(255, 50, 50, 0.4);
+
+    &:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 12px 30px rgba(255, 50, 50, 0.5);
+    }
+
+    &:active {
+      transform: translateY(0);
+    }
   `,
 };
 

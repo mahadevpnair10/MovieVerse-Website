@@ -17,6 +17,8 @@ from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.authentication import SessionAuthentication
 import requests
 from .models import Ratings,RecommendedMovies
+from itertools import chain
+
 
 @api_view(['GET'])
 def hello(request):
@@ -71,37 +73,19 @@ def login_user(request):
     except User.DoesNotExist:
         return Response({"error": "User does not exist!"}, status=404)
 
-@api_view(['GET'])
-@authentication_classes([SessionAuthentication])
-@permission_classes([IsAuthenticated])
-def trending_movies(request):
-    """
-    Get trending movies (simplified version that returns recent movies)
-    """
-    # Get newest movies or a random selection if no sorting criteria
-    movies = Movie.objects.all().order_by('?')[:10]  # Random selection
+# @api_view(['GET'])
+# @authentication_classes([SessionAuthentication])
+# @permission_classes([IsAuthenticated])
+# def trending_movies(request):
+#     """
+#     Get trending movies (simplified version that returns recent movies)
+#     """
+#     # Get newest movies or a random selection if no sorting criteria
+#     movies = Movie.objects.all().order_by('?')[:10]  # Random selection
     
-    serializer = MovieSerializer(movies, many=True)
-    return Response(serializer.data)
-@api_view(['GET'])
-def view_watchlist(request, user_id):
-    watchlist = Watchlist.objects.filter(user_id = user_id)
-    serializer = WatchlistSerializer(watchlist,many = True)
-    return Response(serializer.data)
+#     serializer = MovieSerializer(movies, many=True)
+#     return Response(serializer.data)
 
-@api_view(['POST'])
-def add_movie_to_watchlist(request):
-    serializer = WatchlistSerializer(data = request.data)
-    if serializer.is_valid():
-        serializer.save()
-        return Response(serializer.data, status=201)
-    return Response(serializer.errors, status=400)
-
-@api_view(['DELETE'])
-def remove_movie_from_watchlist(request, pk):
-    watchlist_item = get_object_or_404(Watchlist, pk=pk)
-    watchlist_item.delete()
-    return Response(status=204)
 
 from rest_framework import serializers
 from .models import Movie, Watchlist, Genre
@@ -293,7 +277,7 @@ def view_watchlist(request):
                 'id': item.id,
                 'movie_id': item.movie.id,
                 'title': item.movie.title,
-                'added_on': item.added_on,
+                'added_on': item.added_on.isoformat() if item.added_on else None,
                 'description': item.movie.description,
                 'poster_url': item.movie.poster_url,
                 'genres': [genre.name for genre in item.movie.genres.all()]
@@ -385,30 +369,50 @@ def remove_movie_from_watchlist(request, pk):
 @permission_classes([IsAuthenticated])
 def trending_movies(request):
     """
-    Get trending movies based on recent ratings
+    Get trending movies with some randomization to avoid showing same movies every time
     """
-    # Get distinct movies from recent ratings, ordered by most recent
-    rated_movies = Movie.objects.filter(
-        id__in=Ratings.objects.values_list('movie', flat=True)
-    ).distinct().order_by('-ratings__created_at')[:10]
+    from django.db.models import Count, Q
+    from random import shuffle
     
-    # If we don't have enough rated movies, supplement with random movies
-    if rated_movies.count() < 10:
-        # Get IDs of movies we already have
-        existing_ids = [movie.id for movie in rated_movies]
+    # Get movies that have been rated recently (last 30 days) with rating counts
+    from datetime import datetime, timedelta
+    recent_date = datetime.now() - timedelta(days=30)
+    
+    # Get movies with recent ratings, ordered by rating count and add some randomness
+    trending_candidates = Movie.objects.filter(
+        ratings__created_at__gte=recent_date
+    ).annotate(
+        rating_count=Count('ratings')
+    ).filter(rating_count__gte=1).distinct()
+    
+    # Convert to list to allow shuffling
+    trending_list = list(trending_candidates)
+    
+    # Shuffle to add randomness while keeping trending movies
+    shuffle(trending_list)
+    
+    # Take up to 7 from trending
+    selected_trending = trending_list[:7]
+    
+    # If we need more movies, get some random ones
+    if len(selected_trending) < 10:
+        existing_ids = [movie.id for movie in selected_trending]
+        remaining_needed = 10 - len(selected_trending)
         
         # Get random movies excluding the ones we already have
-        remaining_needed = 10 - rated_movies.count()
-        random_movies = Movie.objects.exclude(id__in=existing_ids).order_by('?')[:remaining_needed]
+        random_movies = list(Movie.objects.exclude(id__in=existing_ids).order_by('?')[:remaining_needed])
         
-        # Combine both querysets
-        from itertools import chain
-        movies_list = list(chain(rated_movies, random_movies))
+        # Combine both lists
+        movies_list = selected_trending + random_movies
     else:
-        movies_list = rated_movies
+        movies_list = selected_trending[:10]
+    
+    # Final shuffle to mix trending and random movies
+    shuffle(movies_list)
     
     serializer = MovieSerializer(movies_list, many=True)
     return Response(serializer.data)
+
 
 @api_view(['POST'])
 @authentication_classes([SessionAuthentication])
@@ -884,23 +888,21 @@ def get_movie_rating(request, movie_id):
         return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
-@api_view(['GET'])
-def search_movies(request,query):
-    """
-    Search for movies by title
-    """
-    #query = request.query_params.get('query')
+# @api_view(['GET'])
+# def search_movie(request, query):  # Accept query as path parameter
+#     """
+#     Search for movies by title
+#     """
+#     if not query:
+#         return Response({"error": "Query parameter 'query' is required"}, status=status.HTTP_400_BAD_REQUEST)
     
-    if not query:
-        return Response({"error": "Query parameter 'query' is required"}, status=status.HTTP_400_BAD_REQUEST)
+#     movies = Movie.objects.filter(title__icontains=query).order_by('-release_date')
     
-    movies = Movie.objects.filter(title__icontains=query).order_by('-release_date')
+#     if not movies.exists():
+#         return Response({"message": "No movies found"}, status=status.HTTP_404_NOT_FOUND)
     
-    if not movies.exists():
-        return Response({"message": "No movies found"}, status=status.HTTP_404_NOT_FOUND)
-    
-    serializer = MovieSerializer(movies, many=True)
-    return Response(serializer.data)
+#     serializer = MovieSerializer(movies, many=True)
+#     return Response(serializer.data)
 
 
 @api_view(['GET'])

@@ -1,74 +1,118 @@
-// src/App.tsx
-import React from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-import { AuthProvider, useAuth } from './context/AuthContext';
+import { AuthProvider } from './context/AuthContext';
+import { MovieDataProvider } from './context/MovieDataContext';
+import { TinderDataProvider } from './context/TinderDataContext';
+import HomePage from './pages/HomePage';
+import WatchlistPage from './pages/WatchlistPage';
+import TinderPage from './pages/TinderPage';
+import MoodPage from './pages/MoodPage';
+import MoodRecommendationsPage from './pages/MoodRecommendationsPage'; // Add this import
+import ProfilePage from './pages/ProfilePage';
 import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
-import HomePage from './pages/HomePage';
-import SearchPage from './pages/SearchPage';
-// ... other imports
-
-const PrivateRoute: React.FC<{ children: JSX.Element }> = ({ children }) => {
-  const { user, isLoading } = useAuth();
-
-  if (isLoading) {
-    return <div>Loading...</div>; // or spinner
-  }
-
-  if (!user) {
-    return <Navigate to="/login" replace />;
-  }
-
-  return children;
-};
-
-const AppRoutes: React.FC = () => {
-  const { user } = useAuth();
-
-  return (
-    <Routes>
-      {/* Public routes */}
-      <Route
-        path="/login"
-        element={!user ? <LoginPage /> : <Navigate to="/" replace />}
-      />
-      <Route
-        path="/register"
-        element={!user ? <RegisterPage /> : <Navigate to="/" replace />}
-      />
-
-      {/* Private routes */}
-      <Route
-        path="/"
-        element={
-          <PrivateRoute>
-            <HomePage />
-          </PrivateRoute>
-        }
-      />
-      <Route
-        path="/search"
-        element={
-          <PrivateRoute>
-            <SearchPage />
-          </PrivateRoute>
-        }
-      />
-      {/* add other private routes similarly */}
-
-      {/* Fallback 404 */}
-      <Route path="*" element={<div>404 Not Found</div>} />
-    </Routes>
-  );
-};
+import MovieDetailsPage from './pages/MovieDetailsPage';
+import PrivateRoute from './components/PrivateRoute';
+import NavBar from './components/NavBar';
 
 const App: React.FC = () => {
+  const [navVisible, setNavVisible] = useState(true);
+  const lastScrollY = useRef(window.scrollY);
+
+  useEffect(() => {
+    const handleScroll = () => {
+      const currentScrollY = window.scrollY;
+      if (currentScrollY < 10) {
+        setNavVisible(true);
+      } else if (currentScrollY > lastScrollY.current) {
+        setNavVisible(false); // scrolling down
+      } else {
+        setNavVisible(true); // scrolling up
+      }
+      lastScrollY.current = currentScrollY;
+    };
+    window.addEventListener('scroll', handleScroll);
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
+
   return (
-    <Router>
-      <AuthProvider>
-        <AppRoutes />
-      </AuthProvider>
-    </Router>
+    <AuthProvider>
+      <MovieDataProvider>
+        <TinderDataProvider>
+          <Router>
+            <NavBar isVisible={navVisible} />
+            <Routes>
+
+              {/* Public Routes */}
+              <Route path="/login" element={<LoginPage />} />
+              <Route path="/register" element={<RegisterPage />}/>
+              {/* Protected Routes */}
+              <Route
+                path="/"
+                element={
+                  <PrivateRoute>
+                    <HomePage />
+                  </PrivateRoute>
+                }
+              />
+              <Route
+                path="/watchlist"
+                element={
+                  <PrivateRoute>
+                    <WatchlistPage />
+                  </PrivateRoute>
+                }
+              />
+              <Route
+                path="/tinder"
+                element={
+                  <PrivateRoute>
+                    <TinderPage />
+                  </PrivateRoute>
+                }
+              />
+              <Route
+                path="/mood"
+                element={
+                  <PrivateRoute>
+                    <MoodPage />
+                  </PrivateRoute>
+                }
+              />
+              {/* Add Mood Recommendations Route */}
+              <Route
+                path="/mood-recommendations"
+                element={
+                  <PrivateRoute>
+                    <MoodRecommendationsPage />
+                  </PrivateRoute>
+                }
+              />
+              <Route
+                path="/profile"
+                element={
+                  <PrivateRoute>
+                    <ProfilePage />
+                  </PrivateRoute>
+                }
+              />
+              {/* Movie Details Route */}
+              <Route
+                path="/movies/:id"
+                element={
+                  <PrivateRoute>
+                    <MovieDetailsPage />
+                  </PrivateRoute>
+                }
+              />
+
+              {/* Fallback route for unknown paths */}
+              <Route path="*" element={<Navigate to="/" />} />
+            </Routes>
+          </Router>
+        </TinderDataProvider>
+      </MovieDataProvider>
+    </AuthProvider>
   );
 };
 
