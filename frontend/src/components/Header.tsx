@@ -1,6 +1,7 @@
 // src/components/Header.tsx
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
 
 interface HeaderProps {
   initialSearchTerm?: string;
@@ -10,7 +11,7 @@ interface HeaderProps {
 
 const Header: React.FC<HeaderProps> = ({ initialSearchTerm = '', onSearchSubmit, showSearchBar = true }) => {
   const [searchTerm, setSearchTerm] = useState(initialSearchTerm);
-
+  const {user} = useAuth();
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
     console.log('Header: Search form submitted with term:', searchTerm); // Debug log
@@ -26,7 +27,7 @@ const Header: React.FC<HeaderProps> = ({ initialSearchTerm = '', onSearchSubmit,
       <div style={headerStyles.topRow}>
         <div style={headerStyles.greeting}>
           <h1 style={headerStyles.greetingText}>Good Morning,</h1>
-          <h1 style={headerStyles.username}>FoxPotato</h1>
+          <h1 style={headerStyles.username}>{user?.username}</h1>
         </div>
         <Link to="/profile" style={headerStyles.profileIconContainer}>
           <svg
